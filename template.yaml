@@ -1,0 +1,61 @@
+## Execute #yarn package-deploy command to run this template 
+
+
+
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  MyLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: my-lambda.handler
+      Runtime: nodejs8.10
+      Role: arn:aws:iam::123456789012:role/acct-managed/an-existing-lambda-role
+      CodeUri: ./
+      Environment:
+        Variables:
+          MY_SNS_TOPIC_ARN: !Ref arn:aws:sns:us-east-2:123456789012:MyTopic
+          MY_SQS_QUEUE_URL: !Ref myQueue
+      Events:
+        SqsJobQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt arn:aws:sqs:us-east-2:123456789012:MyQueue
+            BatchSize: 1
+
+
+# sns topics that the lambda depends on
+  myTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "my-topic"
+
+
+# sqs queues that the lambda uses
+  myQueue:
+    Type: AWS::SQS::Queue
+
+
+myQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref myQueue
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: "*"
+          Action: "sqs:*"
+          Resource: "arn:aws:sqs:us-east-2:123456789012:MyQueue"
+          Condition:
+            ArnEquals:
+              "aws:SourceArn": !Ref arn:aws:sns:us-east-2:123456789012:MyTopic
+
+myQueueToSnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt arn:aws:sqs:us-east-2:123456789012:MyQueue
+      Protocol: sqs
+      RawMessageDelivery: true
+      TopicArn: !Ref arn:aws:sns:us-east-2:123456789012:MyTopic
